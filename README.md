@@ -13,8 +13,8 @@ Biomedical engineering student specializing in bioinformatics at the Université
 - Email :  sarah.jariri@etu.utc.fr
   
 🛠️ Tech stack
-- Languages: Python · R ·  Groovy
-- ML: pandas · NumPy · scikit-learn · matplotlib
+- Languages: Python · R ·  Groovy (QuPath scripting)
+- Data & ML: pandas · NumPy · scikit-learn · matplotlib
 - Imaging: OpenCV · scikit-image · QuPath · 3D Slicer
 - Bioinformatics: scRNA-seq analysis
 - Tools: Git · Jupyter · Google Colab · CodeCarbon
