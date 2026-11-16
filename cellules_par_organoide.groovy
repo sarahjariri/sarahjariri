@@ -4,6 +4,7 @@ String m1 = "SOX2"                 // 1er marqueur (tel qu'écrit dans la classe
 String m2 = "KI67"                 // 2e marqueur (Ki67 ou KI67, les deux sont acceptés)
 int minCellulesCoupe = 1000        // une "coupe" avec moins de cellules = débris, ignorée
 def ordreConditions = ["Ctrl-no-iMG", "C9-no-iMG", "GRN-no-iMG", "Ctrl-iMG-iso", "C9-iMG-iso", "GRN-iMG-iso"]
+def lamesIgnorees = ["TRAINING", "Sparse", "SEC-"]   // lames dont le nom commence par un de ces textes : ignorees
 // ====================================================
 
 def motif = java.util.regex.Pattern.compile('(?i)org\\s*(\\d+)')
@@ -62,7 +63,7 @@ def totaux = [:]
 def illisibles = []
 for (entry in getProject().getImageList()) {
     def nomImg = entry.getImageName()
-    if (nomImg.startsWith("TRAINING") || nomImg.startsWith("Sparse")) continue
+    if (lamesIgnorees.any { nomImg.startsWith(it) }) { println "Ignoree : " + nomImg; continue }
     def hier = null
     try {
         hier = entry.readHierarchy()
