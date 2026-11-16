@@ -48,52 +48,80 @@ def decrireCondition = { String cond ->
     [genotype: genotype, img: img, libelle: (genotype + " " + img).trim()]
 }
 
-// Tous les descendants d'un objet dans la hiérarchie
-def descendants
-descendants = { obj ->
-    def liste = []
-    obj.getChildObjects().each { e ->
-        liste << e
-        liste.addAll(descendants(e))
-    }
-    liste
-}
 def positive = { cell, String marqueur ->
     def pc = cell.getPathClass()
     pc != null && pc.toString().split(":").collect { it.trim() }.any { it.equalsIgnoreCase(marqueur) }
 }
 def pct = { int a, int b -> String.format(Locale.FRANCE, "%.2f", b > 0 ? 100.0 * a / b : 0.0) }
 
-// ---------- 1. Comptage par organoïde (lames A + B additionnées) ----------
+// ---------- 1. Comptage par organoide (lames A + B additionnees) ----------
+// Version economique en memoire : on parcourt chaque cellule une seule fois
+// et on remonte la hierarchie (cellule -> rosette -> coupe) avec getParent().
 def totaux = [:]
 for (entry in getProject().getImageList()) {
     def nomImg = entry.getImageName()
     if (nomImg.startsWith("TRAINING") || nomImg.startsWith("Sparse")) continue
     def hier = entry.readHierarchy()
     def info = infoLame(nomImg)
-    def toutesRosettes = hier.getAnnotationObjects().findAll { estRosette(it) && it.getROI() != null && it.getROI().isArea() }
+    def coupes = hier.getAnnotationObjects().findAll { estCoupe(it) }
+    def rosettes = hier.getAnnotationObjects().findAll { estRosette(it) && it.getROI() != null && it.getROI().isArea() }
+
+    // Chaque rosette est rattachee a la coupe qui la contient (dans la hierarchie, sinon par sa position)
+    def coupeDeRosette = [:]
+    rosettes.each { r ->
+        def p = r.getParent()
+        while (p != null && !estCoupe(p)) p = p.getParent()
+        if (p == null) {
+            def centre = r.getROI().getGeometry().getCentroid()
+            p = coupes.find { it.getROI().getGeometry().contains(centre) }
+        }
+        if (p != null) coupeDeRosette[r] = p
+    }
+
+    // Compteurs par coupe
+    def cpt = [:]
+    coupes.each { c -> cpt[c] = [n: 0, s: 0, k: 0, sk: 0, rn: 0, rs: 0, rk: 0, rsk: 0, ros: 0] }
+    coupeDeRosette.each { r, c -> cpt[c].ros = cpt[c].ros + 1 }
+
+    def cacheClasse = [:]   // classe -> [SOX2+ ?, KI67+ ?] (calcule une seule fois par classe)
+    for (cell in hier.getCellObjects()) {
+        // Remonter : la cellule est-elle dans une rosette ? dans quelle coupe ?
+        def rosette = null
+        def coupe = null
+        def p = cell.getParent()
+        while (p != null) {
+            if (rosette == null && estRosette(p)) rosette = p
+            else if (estCoupe(p)) { coupe = p; break }
+            p = p.getParent()
+        }
+        if (coupe == null && rosette != null) coupe = coupeDeRosette[rosette]
+        if (coupe == null) continue
+        def t = cpt[coupe]
+        def pc = cell.getPathClass()
+        def pos = cacheClasse[pc]
+        if (pos == null) {
+            pos = [positive(cell, m1), positive(cell, m2)]
+            cacheClasse[pc] = pos
+        }
+        boolean s = pos[0]
+        boolean k = pos[1]
+        t.n++
+        if (s) t.s++
+        if (k) t.k++
+        if (s && k) t.sk++
+        if (rosette != null) {
+            t.rn++
+            if (s) t.rs++
+            if (k) t.rk++
+            if (s && k) t.rsk++
+        }
+    }
+
+    // Ajouter chaque coupe au total de son organoide
     int nCoupes = 0
     int nRosettes = 0
-
-    hier.getAnnotationObjects().findAll { estCoupe(it) }.each { coupe ->
-        def gCoupe = coupe.getROI().getGeometry()
-        def sousCoupe = descendants(coupe)
-
-        // Rosettes de la coupe : sous la coupe OU dont le centre est dans la coupe
-        def rosettes = new LinkedHashSet()
-        rosettes.addAll(sousCoupe.findAll { estRosette(it) })
-        rosettes.addAll(toutesRosettes.findAll { gCoupe.contains(it.getROI().getGeometry().getCentroid()) })
-
-        // Cellules des rosettes : lues dans la hiérarchie, sous chaque rosette
-        def cellsRos = new LinkedHashSet()
-        rosettes.each { r -> cellsRos.addAll(descendants(r).findAll { it.isCell() }) }
-
-        // Cellules de la coupe : sous la coupe + sous ses rosettes (sans doublon)
-        def cells = new LinkedHashSet()
-        cells.addAll(sousCoupe.findAll { it.isCell() })
-        cells.addAll(cellsRos)
-        if (cells.size() < minCellulesCoupe) return
-
+    cpt.each { coupe, c ->
+        if (c.n < minCellulesCoupe) return
         def num = numeroOrg(coupe)
         def cle = info.groupe + "|" + num
         if (!totaux.containsKey(cle))
@@ -101,20 +129,15 @@ for (entry in getProject().getImageList()) {
                            n: 0, s: 0, k: 0, sk: 0, rn: 0, rs: 0, rk: 0, rsk: 0]
         def t = totaux[cle]
         t.coupes = t.coupes + 1
-        t.rosettes = t.rosettes + rosettes.size()
-        t.n   = t.n   + cells.size()
-        t.s   = t.s   + cells.count { positive(it, m1) }
-        t.k   = t.k   + cells.count { positive(it, m2) }
-        t.sk  = t.sk  + cells.count { positive(it, m1) && positive(it, m2) }
-        t.rn  = t.rn  + cellsRos.size()
-        t.rs  = t.rs  + cellsRos.count { positive(it, m1) }
-        t.rk  = t.rk  + cellsRos.count { positive(it, m2) }
-        t.rsk = t.rsk + cellsRos.count { positive(it, m1) && positive(it, m2) }
+        t.rosettes = t.rosettes + c.ros
+        ["n", "s", "k", "sk", "rn", "rs", "rk", "rsk"].each { cleC -> t[cleC] = t[cleC] + c[cleC] }
         nCoupes++
-        nRosettes += rosettes.size()
+        nRosettes += c.ros
     }
-    println "OK : " + nomImg + " (" + nCoupes + " coupes, " + nRosettes + " rosettes sur " + toutesRosettes.size() + " dans la lame)"
+    println "OK : " + nomImg + " (" + nCoupes + " coupes, " + nRosettes + " rosettes sur " + rosettes.size() + " dans la lame)"
     hier = null
+    cpt = null
+    System.gc()
 }
 
 // ---------- 2. Tableau par organoïde ----------
