@@ -25,6 +25,7 @@ def estCoupe = { obj ->
 def normaliser = { String s -> s.replaceAll('(?i)-Ctr(?=-|\\z)', '-Ctrl') }
 def infoLame = { String nom ->
     def base = nom.replaceFirst('(?i)\\.vsi.*\\z', '').replaceFirst('(?i)^(training|validation)_', '')
+    base = base.replaceFirst('^.*?(?=Image_)', '')   // enleve un prefixe avant "Image_" (ex. "SEC-")
     def m = java.util.regex.Pattern.compile('-([AB])(_\\d+)?\\z').matcher(base)
     if (m.find()) base = base.substring(0, m.start())
     base = normaliser(base)
