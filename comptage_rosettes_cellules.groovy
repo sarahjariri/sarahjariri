@@ -165,29 +165,6 @@ String pp = m1 + "+_" + m2 + "+"   // SOX2+_KI67+
 String mm = m1 + "-_" + m2 + "-"   // SOX2-_KI67-
 String SLASH = String.valueOf((char) 47)   // caractere "barre oblique"
 
-def colonnes = [
-    "Condition", "Genotype", "iMG", "Organoide", "Nb_coupes", "Nb_rosettes", "DAPI+",
-    // Organoide entier
-    pm, mp, pp, mm,
-    "% " + pm, "% " + mp, "% " + pp, "% " + mm,
-    m1 + "+", "% " + m1 + "+", m2 + "+", "% " + m2 + "+",
-    // Dans les rosettes
-    "DAPI+_dans_rosettes", "% DAPI+_dans_rosettes",
-    m1 + "+_dans_rosettes", "% " + m1 + "+_dans_rosettes",
-    m2 + "+_dans_rosettes", "% " + m2 + "+_dans_rosettes",
-    pm + "_dans_rosettes", mp + "_dans_rosettes", pp + "_dans_rosettes", mm + "_dans_rosettes",
-    "% " + pm + "_dans_rosettes", "% " + mp + "_dans_rosettes", "% " + pp + "_dans_rosettes", "% " + mm + "_dans_rosettes",
-    "%DAPI+" + SLASH + m1 + "_dans_rosette",
-    // Hors rosettes
-    "DAPI+_hors_rosettes", "% DAPI+_hors_rosettes",
-    m1 + "+_hors_rosettes", "% " + m1 + "+_hors_rosettes",
-    m2 + "+_hors_rosettes", "% " + m2 + "+_hors_rosettes",
-    pm + "_hors_rosettes", mp + "_hors_rosettes", pp + "_hors_rosettes", mm + "_hors_rosettes",
-    "% " + pm + "_hors_rosettes", "% " + mp + "_hors_rosettes", "% " + pp + "_hors_rosettes", "% " + mm + "_hors_rosettes",
-    "%DAPI+" + SLASH + m1 + "_hors_rosette"
-]
-def lignes = [colonnes.join(";")]
-
 def ordre = { String c ->
     int i = ordreConditions.findIndexOf { it.equalsIgnoreCase(c) }
     return i < 0 ? 1000 : i
@@ -199,7 +176,9 @@ liste.sort { a, b ->
     if (r == 0) r = (a.num ?: 999) <=> (b.num ?: 999)
     return r
 }
-liste.each { t ->
+
+// Une ligne = liste de [nom de colonne, valeur] : chaque nombre est suivi de son pourcentage
+def construireLigne = { t ->
     def d = decrireCondition(t.cond)
     // Organoide entier
     int nPM = t.s - t.sk
@@ -219,29 +198,51 @@ liste.each { t ->
     int hMP = nMP - rMP
     int hPP = nPP - rPP
     int hMM = nMM - rMM
-    def valeurs = [
-        d.libelle, d.genotype, d.img, (t.num == null ? "Org ?" : "Org " + t.num), t.coupes, t.rosettes, t.n,
-        // Organoide entier
-        nPM, nMP, nPP, nMM,
-        pct(nPM, t.n), pct(nMP, t.n), pct(nPP, t.n), pct(nMM, t.n),
-        t.s, pct(t.s, t.n), t.k, pct(t.k, t.n),
-        // Dans les rosettes
-        t.rn, pct(t.rn, t.n),
-        t.rs, pct(t.rs, t.rn),
-        t.rk, pct(t.rk, t.rn),
-        rPM, rMP, rPP, rMM,
-        pct(rPM, t.rn), pct(rMP, t.rn), pct(rPP, t.rn), pct(rMM, t.rn),
-        pct(t.rs, t.rn),
-        // Hors rosettes
-        hn, pct(hn, t.n),
-        hS, pct(hS, hn),
-        hK, pct(hK, hn),
-        hPM, hMP, hPP, hMM,
-        pct(hPM, hn), pct(hMP, hn), pct(hPP, hn), pct(hMM, hn),
-        pct(hS, hn)
-    ]
-    lignes << valeurs.join(";")
+    def c = []
+    // ----- Identification
+    c << ["Condition", d.libelle]
+    c << ["Genotype", d.genotype]
+    c << ["iMG", d.img]
+    c << ["Organoide", (t.num == null ? "Org ?" : "Org " + t.num)]
+    c << ["Nb_coupes", t.coupes]
+    c << ["Nb_rosettes", t.rosettes]
+    c << ["DAPI+", t.n]
+    // ----- Organoide entier (% sur les DAPI+ de l'organoide)
+    c << [m1 + "+", t.s];  c << ["% " + m1 + "+", pct(t.s, t.n)]
+    c << [m2 + "+", t.k];  c << ["% " + m2 + "+", pct(t.k, t.n)]
+    c << [pm, nPM];        c << ["% " + pm, pct(nPM, t.n)]
+    c << [mp, nMP];        c << ["% " + mp, pct(nMP, t.n)]
+    c << [pp, nPP];        c << ["% " + pp, pct(nPP, t.n)]
+    c << [mm, nMM];        c << ["% " + mm, pct(nMM, t.n)]
+    // ----- Dans les rosettes (% sur les DAPI+ des rosettes)
+    c << ["DAPI+_dans_rosettes", t.rn];           c << ["% DAPI+_dans_rosettes", pct(t.rn, t.n)]
+    c << [m1 + "+_dans_rosettes", t.rs];          c << ["% " + m1 + "+_dans_rosettes", pct(t.rs, t.rn)]
+    c << [m2 + "+_dans_rosettes", t.rk];          c << ["% " + m2 + "+_dans_rosettes", pct(t.rk, t.rn)]
+    c << [pm + "_dans_rosettes", rPM];            c << ["% " + pm + "_dans_rosettes", pct(rPM, t.rn)]
+    c << [mp + "_dans_rosettes", rMP];            c << ["% " + mp + "_dans_rosettes", pct(rMP, t.rn)]
+    c << [pp + "_dans_rosettes", rPP];            c << ["% " + pp + "_dans_rosettes", pct(rPP, t.rn)]
+    c << [mm + "_dans_rosettes", rMM];            c << ["% " + mm + "_dans_rosettes", pct(rMM, t.rn)]
+    c << ["%DAPI+" + SLASH + m1 + "_dans_rosette", pct(t.rs, t.rn)]
+    c << ["% " + m1 + "+_dans_rosettes" + SLASH + m1 + "+_organoide", pct(t.rs, t.s)]
+    c << ["% " + m2 + "+_dans_rosettes" + SLASH + m2 + "+_organoide", pct(t.rk, t.k)]
+    // ----- Hors rosettes (% sur les DAPI+ hors rosettes)
+    c << ["DAPI+_hors_rosettes", hn];             c << ["% DAPI+_hors_rosettes", pct(hn, t.n)]
+    c << [m1 + "+_hors_rosettes", hS];            c << ["% " + m1 + "+_hors_rosettes", pct(hS, hn)]
+    c << [m2 + "+_hors_rosettes", hK];            c << ["% " + m2 + "+_hors_rosettes", pct(hK, hn)]
+    c << [pm + "_hors_rosettes", hPM];            c << ["% " + pm + "_hors_rosettes", pct(hPM, hn)]
+    c << [mp + "_hors_rosettes", hMP];            c << ["% " + mp + "_hors_rosettes", pct(hMP, hn)]
+    c << [pp + "_hors_rosettes", hPP];            c << ["% " + pp + "_hors_rosettes", pct(hPP, hn)]
+    c << [mm + "_hors_rosettes", hMM];            c << ["% " + mm + "_hors_rosettes", pct(hMM, hn)]
+    c << ["%DAPI+" + SLASH + m1 + "_hors_rosette", pct(hS, hn)]
+    c << ["% " + m1 + "+_hors_rosettes" + SLASH + m1 + "+_organoide", pct(hS, t.s)]
+    c << ["% " + m2 + "+_hors_rosettes" + SLASH + m2 + "+_organoide", pct(hK, t.k)]
+    return c
 }
+
+def lignesOrg = liste.collect { construireLigne(it) }
+def lignes = []
+if (!lignesOrg.isEmpty()) lignes << lignesOrg[0].collect { it[0] }.join(";")
+lignesOrg.each { l -> lignes << l.collect { it[1] }.join(";") }
 
 // ---------- 3. Écriture ----------
 def dossier = buildFilePath(PROJECT_BASE_DIR, "resultats")
