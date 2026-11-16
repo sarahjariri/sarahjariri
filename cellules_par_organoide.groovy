@@ -58,10 +58,21 @@ def pct = { int a, int b -> String.format(Locale.FRANCE, "%.2f", b > 0 ? 100.0 *
 // Version economique en memoire : on parcourt chaque cellule une seule fois
 // et on remonte la hierarchie (cellule -> rosette -> coupe) avec getParent().
 def totaux = [:]
+def illisibles = []
 for (entry in getProject().getImageList()) {
     def nomImg = entry.getImageName()
     if (nomImg.startsWith("TRAINING") || nomImg.startsWith("Sparse")) continue
-    def hier = entry.readHierarchy()
+    def hier = null
+    try {
+        hier = entry.readHierarchy()
+    } catch (Throwable err) {
+        hier = null
+    }
+    if (hier == null || hier.getAnnotationObjects().isEmpty()) {
+        println "IMPOSSIBLE DE LIRE (lame ignoree) : " + nomImg
+        illisibles << nomImg
+        continue
+    }
     def info = infoLame(nomImg)
     def coupes = hier.getAnnotationObjects().findAll { estCoupe(it) }
     def rosettes = hier.getAnnotationObjects().findAll { estRosette(it) && it.getROI() != null && it.getROI().isArea() }
@@ -227,3 +238,7 @@ try {
     println "ATTENTION : fichier ouvert (Excel ?), résultats écrits dans " + copie.getName()
 }
 println "Terminé : " + (lignes.size() - 1) + " organoïdes"
+if (!illisibles.isEmpty()) {
+    println "ATTENTION : " + illisibles.size() + " lame(s) ignoree(s) car leur fichier de donnees est illisible :"
+    illisibles.each { println "   - " + it }
+}
