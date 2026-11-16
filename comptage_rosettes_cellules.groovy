@@ -252,7 +252,7 @@ try {
     fichier.setText(texte, "UTF-8")
     println "Écrit : " + fichier.getName()
 } catch (Exception e) {
-    def stamp = new Date().format("yyyyMMdd_HHmmss")
+    def stamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())
     def copie = new File(buildFilePath(dossier, "cellules_par_organoide_" + stamp + ".csv"))
     copie.setText(texte, "UTF-8")
     println "ATTENTION : fichier ouvert (Excel ?), résultats écrits dans " + copie.getName()
