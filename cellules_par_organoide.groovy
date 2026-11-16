@@ -163,19 +163,23 @@ String SLASH = String.valueOf((char) 47)   // caractere "barre oblique"
 
 def colonnes = [
     "Condition", "Genotype", "iMG", "Organoide", "Nb_coupes", "Nb_rosettes", "DAPI+",
-    // Organoïde entier
+    // Organoide entier
     pm, mp, pp, mm,
-    "% " + pm, "% " + mp, "% " + pp,
+    "% " + pm, "% " + mp, "% " + pp, "% " + mm,
+    m1 + "+", "% " + m1 + "+", m2 + "+", "% " + m2 + "+",
     // Dans les rosettes
     "DAPI+_dans_rosettes", "% DAPI+_dans_rosettes",
-    m1 + "+_dans_rosettes", m2 + "+_dans_rosettes",
-    pm + "_dans_rosettes", mp + "_dans_rosettes", pp + "_dans_rosettes",
-    "% " + pm + "_dans_rosettes", "% " + mp + "_dans_rosettes", "% " + pp + "_dans_rosettes",
+    m1 + "+_dans_rosettes", "% " + m1 + "+_dans_rosettes",
+    m2 + "+_dans_rosettes", "% " + m2 + "+_dans_rosettes",
+    pm + "_dans_rosettes", mp + "_dans_rosettes", pp + "_dans_rosettes", mm + "_dans_rosettes",
+    "% " + pm + "_dans_rosettes", "% " + mp + "_dans_rosettes", "% " + pp + "_dans_rosettes", "% " + mm + "_dans_rosettes",
     "%DAPI+" + SLASH + m1 + "_dans_rosette",
     // Hors rosettes
     "DAPI+_hors_rosettes", "% DAPI+_hors_rosettes",
-    pm + "_hors_rosettes", mp + "_hors_rosettes", pp + "_hors_rosettes",
-    "% " + pm + "_hors_rosettes", "% " + mp + "_hors_rosettes", "% " + pp + "_hors_rosettes",
+    m1 + "+_hors_rosettes", "% " + m1 + "+_hors_rosettes",
+    m2 + "+_hors_rosettes", "% " + m2 + "+_hors_rosettes",
+    pm + "_hors_rosettes", mp + "_hors_rosettes", pp + "_hors_rosettes", mm + "_hors_rosettes",
+    "% " + pm + "_hors_rosettes", "% " + mp + "_hors_rosettes", "% " + pp + "_hors_rosettes", "% " + mm + "_hors_rosettes",
     "%DAPI+" + SLASH + m1 + "_hors_rosette"
 ]
 def lignes = [colonnes.join(";")]
@@ -193,7 +197,7 @@ liste.sort { a, b ->
 }
 liste.each { t ->
     def d = decrireCondition(t.cond)
-    // Organoïde entier
+    // Organoide entier
     int nPM = t.s - t.sk
     int nMP = t.k - t.sk
     int nPP = t.sk
@@ -202,24 +206,34 @@ liste.each { t ->
     int rPM = t.rs - t.rsk
     int rMP = t.rk - t.rsk
     int rPP = t.rsk
-    // Hors rosettes = organoïde entier - rosettes
+    int rMM = t.rn - (t.rs + t.rk - t.rsk)
+    // Hors rosettes = organoide entier - rosettes
     int hn = t.n - t.rn
     int hS = t.s - t.rs
+    int hK = t.k - t.rk
     int hPM = nPM - rPM
     int hMP = nMP - rMP
     int hPP = nPP - rPP
+    int hMM = nMM - rMM
     def valeurs = [
         d.libelle, d.genotype, d.img, (t.num == null ? "Org ?" : "Org " + t.num), t.coupes, t.rosettes, t.n,
+        // Organoide entier
         nPM, nMP, nPP, nMM,
-        pct(nPM, t.n), pct(nMP, t.n), pct(nPP, t.n),
+        pct(nPM, t.n), pct(nMP, t.n), pct(nPP, t.n), pct(nMM, t.n),
+        t.s, pct(t.s, t.n), t.k, pct(t.k, t.n),
+        // Dans les rosettes
         t.rn, pct(t.rn, t.n),
-        t.rs, t.rk,
-        rPM, rMP, rPP,
-        pct(rPM, t.rn), pct(rMP, t.rn), pct(rPP, t.rn),
+        t.rs, pct(t.rs, t.rn),
+        t.rk, pct(t.rk, t.rn),
+        rPM, rMP, rPP, rMM,
+        pct(rPM, t.rn), pct(rMP, t.rn), pct(rPP, t.rn), pct(rMM, t.rn),
         pct(t.rs, t.rn),
+        // Hors rosettes
         hn, pct(hn, t.n),
-        hPM, hMP, hPP,
-        pct(hPM, hn), pct(hMP, hn), pct(hPP, hn),
+        hS, pct(hS, hn),
+        hK, pct(hK, hn),
+        hPM, hMP, hPP, hMM,
+        pct(hPM, hn), pct(hMP, hn), pct(hPP, hn), pct(hMM, hn),
         pct(hS, hn)
     ]
     lignes << valeurs.join(";")
