@@ -81,6 +81,25 @@ def cibles = canauxVus.collect { attendu(it) }
 if (!cibles.contains("SOX2") || !cibles.contains("KI67"))
     println "   ATTENTION : SOX2 ou KI67 introuvable. Renseigne correspondancesManuelles avec les canaux ci-dessus."
 
+// Cellules sans cytoplasme : on recopie les valeurs du noyau dans les mesures "Cytoplasm" manquantes
+int nSansCyto = 0
+def marqueurs = cibles.findAll { it == "SOX2" || it == "KI67" }
+cellules.each { c ->
+    def ml = c.getMeasurementList()
+    boolean corrige = false
+    marqueurs.each { m ->
+        stats.each { s ->
+            if (Double.isNaN(ml.get(m + ": Cytoplasm: " + s))) {
+                double v = ml.get(m + ": Nucleus: " + s)
+                if (!Double.isNaN(v)) { ml.put(m + ": Cytoplasm: " + s, v); corrige = true }
+            }
+        }
+    }
+    ml.close()
+    if (corrige) nSansCyto++
+}
+if (nSansCyto > 0) println "   " + nSansCyto + " cellule(s) sans cytoplasme : valeurs du noyau recopiees"
+
 // Application du classifieur (optionnel)
 if (classifieur) {
     runObjectClassifier(classifieur)
